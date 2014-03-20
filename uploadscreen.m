@@ -1,14 +1,14 @@
 #import <Cocoa/Cocoa.h>
 int main (int argc, const char * argv[]) {
-    NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
+  NSAutoreleasePool * pool = [[NSAutoreleasePool alloc] init];
 	
 	
-	if ( argc != 2 ) /* argc should be 2 for correct execution */
-    {
-        /* We print argv[0] assuming it is the program name */
-        printf( "usage: %s appname \n", argv[0] );
-		return 0;
-    }
+  if ( argc != 2 ) /* argc should be 2 for correct execution */
+  {
+    /* We print argv[0] assuming it is the program name */
+    printf( "usage: %s appname \n", argv[0] );
+    return 0;
+  }
 	
 	NSString *stringFromArgv = [NSString stringWithCString:argv[1] encoding:NSUTF8StringEncoding]; 
 	
@@ -45,16 +45,13 @@ int main (int argc, const char * argv[]) {
 				CGImageRef windowImage = CGWindowListCreateImage(CGRectNull, kCGWindowListOptionIncludingWindow, windowID, kCGWindowImageDefault);
 				// Create a bitmap rep from the image...
 				NSBitmapImageRep *bitmapRep = [[NSBitmapImageRep alloc] initWithCGImage:windowImage];
-				
-				// save image
-				
+
 				data = [bitmapRep representationUsingType:NSPNGFileType properties:nil];
 				[data writeToFile:@"/Users/yene/file.png" atomically:NO];
 				
 				[bitmapRep release];
 				CGImageRelease(windowImage);	
 				
-				// break the loop
 				break;
 			}
 		}
@@ -67,33 +64,29 @@ int main (int argc, const char * argv[]) {
 	[windowList release];
 	
 	// upload image
-	//creating the url request
 	NSMutableURLRequest *urlRequest = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:@"http://imagebanana.com/"]];
-	//adding header information
 	[urlRequest setHTTPMethod:@"POST"];
 	
-	NSString *stringBoundary = [NSString stringWithString:@"0xKhTmLbOuNdArY"];
+	NSString *stringBoundary = @"0xKhTmLbOuNdArY";
     [urlRequest setValue:[NSString stringWithFormat:@"multipart/form-data; boundary=%@", stringBoundary] forHTTPHeaderField:@"Content-Type"];
 	
 	
-	//setting up the body:
-	NSMutableData *postBody = [NSMutableData dataWithCapacity:1]; //[NSMutableData dataWithCapacity:[data length] + 512];
+	NSMutableData *postBody = [NSMutableData dataWithCapacity:1];
 	[postBody appendData:[[NSString stringWithFormat:@"--%@\r\n",stringBoundary] dataUsingEncoding:NSUTF8StringEncoding]];
-	[postBody appendData:[[NSString stringWithString:@"Content-Disposition: form-data; name=\"send\"\r\n\r\n"] dataUsingEncoding:NSUTF8StringEncoding]];
-	[postBody appendData:[[NSString stringWithString:@"Hochladen!"] dataUsingEncoding:NSUTF8StringEncoding]];
+	[postBody appendData:[@"Content-Disposition: form-data; name=\"send\"\r\n\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
+	[postBody appendData:[@"Hochladen!" dataUsingEncoding:NSUTF8StringEncoding]];
 	[postBody appendData:[[NSString stringWithFormat:@"\r\n--%@\r\n",stringBoundary] dataUsingEncoding:NSUTF8StringEncoding]];
-	[postBody appendData:[[NSString stringWithString:@"Content-Disposition: form-data; name=\"img\"; filename=\"file.png\"\r\n"] dataUsingEncoding:NSUTF8StringEncoding]];
-	[postBody appendData:[[NSString stringWithString:@"Content-Type: image/png\r\n\r\n"] dataUsingEncoding:NSUTF8StringEncoding]];
-	//[postBody appendData:[NSData dataWithContentsOfFile:@"/test.txt"]];
+	[postBody appendData:[@"Content-Disposition: form-data; name=\"img\"; filename=\"file.png\"\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
+	[postBody appendData:[@"Content-Type: image/png\r\n\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
 	[postBody appendData:data];
 	[postBody appendData:[[NSString stringWithFormat:@"\r\n--%@--\r\n",stringBoundary] dataUsingEncoding:NSUTF8StringEncoding]];
 	[urlRequest setHTTPBody:postBody];
 	
-	
-    NSData *answer = [NSURLConnection sendSynchronousRequest:urlRequest returningResponse:nil error:nil];
+	NSError *error;
+  NSData *answer = [NSURLConnection sendSynchronousRequest:urlRequest returningResponse:nil error:&error];
 	
 	if (!answer) {
-		NSLog(@"fail");
+		NSLog(@"Error: %@", [error localizedDescription]);
 	} else {
 		// image url
 		NSString *answerString = [NSString stringWithCString:[answer bytes] encoding:NSASCIIStringEncoding];
@@ -114,7 +107,7 @@ int main (int argc, const char * argv[]) {
 		//[answer writeToFile:@"/Users/yene/answer.html" atomically:NO];
 	}
 
-	
-    [pool drain];
-    return 0;
+
+  [pool drain];
+  return 0;
 }
