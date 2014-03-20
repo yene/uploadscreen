@@ -6,17 +6,15 @@ int main (int argc, const char * argv[]) {
   if ( argc != 2 ) /* argc should be 2 for correct execution */
   {
     /* We print argv[0] assuming it is the program name */
-    printf( "usage: %s appname \n", argv[0] );
+    printf( "usage: uploadscreen appname \n", argv[0] );
     return 0;
   }
 	
 	NSString *stringFromArgv = [NSString stringWithCString:argv[1] encoding:NSUTF8StringEncoding]; 
 	
 	NSArray *windowList = (NSArray*)CGWindowListCopyWindowInfo(kCGWindowListOptionAll | kCGWindowListOptionOnScreenOnly, kCGNullWindowID);
-	NSData* data = [NSData data];
-	
-	BOOL found = NO;
-	
+	NSData *data = nil;
+		
 	for (NSDictionary *entry in windowList) {
 		// The flags that we pass to CGWindowListCopyWindowInfo will automatically filter out most undesirable windows.
 		// However, it is possible that we will get back a window that we cannot read from, so we'll filter those out manually.
@@ -25,7 +23,6 @@ int main (int argc, const char * argv[]) {
 		{
 			NSString *appname = [entry objectForKey:(id)kCGWindowOwnerName];
 			if ([appname rangeOfString:stringFromArgv].location != NSNotFound ){
-				found = YES;
 				CGWindowID windowID = [[entry objectForKey:(id)kCGWindowNumber] unsignedIntValue];
 				
 				/* bounds
@@ -43,12 +40,8 @@ int main (int argc, const char * argv[]) {
 				 //imageOptions = ChangeBits(imageOptions, kCGWindowImageOnlyShadows, [imageShadowsOnly intValue] == NSOnState);
 				 */
 				CGImageRef windowImage = CGWindowListCreateImage(CGRectNull, kCGWindowListOptionIncludingWindow, windowID, kCGWindowImageDefault);
-				// Create a bitmap rep from the image...
 				NSBitmapImageRep *bitmapRep = [[NSBitmapImageRep alloc] initWithCGImage:windowImage];
-
 				data = [bitmapRep representationUsingType:NSPNGFileType properties:nil];
-				[data writeToFile:@"/Users/yene/file.png" atomically:NO];
-				
 				[bitmapRep release];
 				CGImageRelease(windowImage);	
 				
@@ -57,28 +50,43 @@ int main (int argc, const char * argv[]) {
 		}
 	}
 	
-	if (!found) {
+  [windowList release];
+  
+	if (!data) {
+    printf( "App not found. (example: Terminal)\n");
 		return 0;
 	}
-	
-	[windowList release];
-	
+	 
 	// upload image
-	NSMutableURLRequest *urlRequest = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:@"http://imagebanana.com/"]];
+	NSMutableURLRequest *urlRequest = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:@"http://www.directupload.net/index.php?mode=upload"]];
 	[urlRequest setHTTPMethod:@"POST"];
 	
 	NSString *stringBoundary = @"0xKhTmLbOuNdArY";
-    [urlRequest setValue:[NSString stringWithFormat:@"multipart/form-data; boundary=%@", stringBoundary] forHTTPHeaderField:@"Content-Type"];
-	
+  [urlRequest setValue:[NSString stringWithFormat:@"multipart/form-data; boundary=%@", stringBoundary] forHTTPHeaderField:@"Content-Type"];
 	
 	NSMutableData *postBody = [NSMutableData dataWithCapacity:1];
-	[postBody appendData:[[NSString stringWithFormat:@"--%@\r\n",stringBoundary] dataUsingEncoding:NSUTF8StringEncoding]];
-	[postBody appendData:[@"Content-Disposition: form-data; name=\"send\"\r\n\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
-	[postBody appendData:[@"Hochladen!" dataUsingEncoding:NSUTF8StringEncoding]];
+  
 	[postBody appendData:[[NSString stringWithFormat:@"\r\n--%@\r\n",stringBoundary] dataUsingEncoding:NSUTF8StringEncoding]];
-	[postBody appendData:[@"Content-Disposition: form-data; name=\"img\"; filename=\"file.png\"\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
+	[postBody appendData:[@"Content-Disposition: form-data; name=\"bilddatei\"; filename=\"file.png\"\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
 	[postBody appendData:[@"Content-Type: image/png\r\n\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
 	[postBody appendData:data];
+  
+  [postBody appendData:[[NSString stringWithFormat:@"--%@\r\n",stringBoundary] dataUsingEncoding:NSUTF8StringEncoding]];
+	[postBody appendData:[@"Content-Disposition: form-data; name=\"image_link\"\r\n\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
+	[postBody appendData:[@"Die Bild-URL bitte hier einfügen" dataUsingEncoding:NSUTF8StringEncoding]];
+  
+  [postBody appendData:[[NSString stringWithFormat:@"--%@\r\n",stringBoundary] dataUsingEncoding:NSUTF8StringEncoding]];
+	[postBody appendData:[@"Content-Disposition: form-data; name=\"image_comment\"\r\n\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
+	[postBody appendData:[@"" dataUsingEncoding:NSUTF8StringEncoding]];
+  
+  [postBody appendData:[[NSString stringWithFormat:@"--%@\r\n",stringBoundary] dataUsingEncoding:NSUTF8StringEncoding]];
+	[postBody appendData:[@"Content-Disposition: form-data; name=\"image_tags\"\r\n\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
+	[postBody appendData:[@"" dataUsingEncoding:NSUTF8StringEncoding]];
+  
+  [postBody appendData:[[NSString stringWithFormat:@"--%@\r\n",stringBoundary] dataUsingEncoding:NSUTF8StringEncoding]];
+	[postBody appendData:[@"Content-Disposition: form-data; name=\"image_mail\"\r\n\r\n" dataUsingEncoding:NSUTF8StringEncoding]];
+	[postBody appendData:[@"" dataUsingEncoding:NSUTF8StringEncoding]];
+  
 	[postBody appendData:[[NSString stringWithFormat:@"\r\n--%@--\r\n",stringBoundary] dataUsingEncoding:NSUTF8StringEncoding]];
 	[urlRequest setHTTPBody:postBody];
 	
@@ -88,25 +96,18 @@ int main (int argc, const char * argv[]) {
 	if (!answer) {
 		NSLog(@"Error: %@", [error localizedDescription]);
 	} else {
-		// image url
+		// grab direct url to image from the HTML response
 		NSString *answerString = [NSString stringWithCString:[answer bytes] encoding:NSASCIIStringEncoding];
-		NSRange range1 = [answerString rangeOfString:@"http://www.imagebanana.com/][IMG]http://www.imagebanana.com/img/"];
-		NSRange range2 = NSMakeRange(range1.location, [answerString length]-range1.location); // such bereich
-		range2 = [answerString rangeOfString:@"file.png" options:NSCaseInsensitiveSearch range:range2];
-		range1.location = range1.location +33;
-		NSRange range3 = NSMakeRange(range1.location, (range2.location+range2.length)-range1.location);
-		NSString *url = [answerString substringWithRange:range3];
-		
-		// short url
-		NSString *apiEndpoint = [NSString stringWithFormat:@"http://api.tr.im/v1/trim_simple?url=%@",url];
-		NSString *shortURL = [NSString stringWithContentsOfURL:[NSURL URLWithString:apiEndpoint]
-													  encoding:NSASCIIStringEncoding
-														 error:nil];
-		//NSLog(@"Long: %@ - Short: %@",url,shortURL);
-		printf( "%s\n", [shortURL UTF8String] );
-		//[answer writeToFile:@"/Users/yene/answer.html" atomically:NO];
+		NSRange range = [answerString rangeOfString:@"[URL=http://www.directupload.net][IMG]"];
+    answerString = [answerString substringFromIndex:range.location+range.length];
+    range = [answerString rangeOfString:@"[/IMG][/URL]"];
+    NSString *imageUrl = [answerString substringToIndex:range.location];
+    
+		printf( "%s\n", [imageUrl UTF8String] );
+    
+    [[NSPasteboard generalPasteboard] declareTypes:[NSArray arrayWithObject:NSPasteboardTypeString] owner:nil];
+    [[NSPasteboard generalPasteboard] setString:imageUrl forType:NSPasteboardTypeString];
 	}
-
 
   [pool drain];
   return 0;
